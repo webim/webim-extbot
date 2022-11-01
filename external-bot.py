@@ -1,50 +1,25 @@
 """Пример умного бота для Webim.
 
-В этом файле реализован простой умный бот для Webim. Бот отправляет в чат кнопки в
-ответ на любое сообщение посетителя. Поддерживается как API 2.0 (class ApiV2Sample),
-так и более старый API 1.0 (class ApiV1Sample).
+В этом файле реализован простой умный бот для Webim. Поддерживается как API 2.0
+(class ApiV2Sample), так и более старый API 1.0 (class ApiV1Sample).
 
 Информация по запуску бота: python external-bot.py --help
 """
 
 
 ##
-# Импортирование, константы и прочие служебные вещи
+# Импортирование и прочие служебные вещи
 ##
 
 
 import json
 import logging
+from enum import Enum
 
 from aiohttp import ClientSession, web
 
-
 logger = logging.getLogger(__name__)
 
-KEYBOARD = [
-    [
-        dict(id="button-1", text="One"),
-        dict(id="button-2", text="Two"),
-    ],
-    [
-        dict(id="button-3", text="Three"),
-        dict(id="button-4", text="Four"),
-    ],
-    [
-        dict(id='button-5', text='Send photo'),
-        dict(id='button-6', text='Send document'),
-        dict(id='button-7', text='Close chat'),
-    ],
-    [
-        dict(id='button-8', text='Redirect to operator'),
-        dict(id='button-9', text='Redirect to department')
-    ]
-]
-
-FILE_BUTTON_IDS = [f'button-{i}' for i in range(5, 7)]
-TEXT_BUTTON_IDS = [f'button-{i}' for i in range(1, 5)]
-CLOSE_BUTTON_ID = ['button-7']
-REDIRECT_BUTTON_IDS = [f'button-{i}' for i in range(8, 10)]
 
 def pretty_json(data):
     return json.dumps(data, indent=1)
@@ -55,22 +30,84 @@ def pretty_json(data):
 ##
 
 
+class ApiV2ButtonIds(str, Enum):
+    SAY_HI = "say_hi"
+    CLOSE_CHAT = "close_chat"
+    SEND_IMAGE = "send_image"
+    SEND_DOCUMENT = "send_document"
+    FORWARD_TO_AGENT = "forward_to_agent"
+    FORWARD_TO_DEPARTMENT = "forward_to_department"
+
+
+V2_SAMPLE_DEFAULT_KEYBOARD = [
+    [
+        dict(id=ApiV2ButtonIds.SAY_HI, text="Say hi"),
+        dict(id=ApiV2ButtonIds.CLOSE_CHAT, text="Close chat"),
+    ],
+    [
+        dict(id=ApiV2ButtonIds.SEND_IMAGE, text="Send image"),
+        dict(id=ApiV2ButtonIds.SEND_DOCUMENT, text="Send document"),
+    ],
+]
+
+V2_SAMPLE_FWD_AGENT_BUTTON = dict(
+    id=ApiV2ButtonIds.FORWARD_TO_AGENT, text="Forward to agent"
+)
+V2_SAMPLE_FWD_DEPARTMENT_BUTTON = dict(
+    id=ApiV2ButtonIds.FORWARD_TO_DEPARTMENT, text="Forward to department"
+)
+
+V2_SAMPLE_GREETING_TEXT = "Hi! I am External API 2.0 sample bot. What should I do?"
+V2_SAMPLE_DO_NOT_UNDERSTAND_TEXT = "What do you mean? Here is what I can do:"
+V2_SAMPLE_WHAT_NEXT_TEXT = "What should I do next?"
+V2_SAMPLE_FILE_RECEIVED_TEXT = "Thanks for the file. What should I do next?"
+V2_SAMPLE_FAREWELL_TEXT = "Bye!"
+
+V2_SAMPLE_IMAGE = {
+    "url": "https://i.pinimg.com/originals/90/0a/b7/900ab76cf0c3b2fe8683e0e2039beb00.png",
+    "name": "shlepa.png",
+    "media_type": "image/png",
+}
+V2_SAMPLE_DOCUMENT = {
+    "url": "https://filesamples.com/samples/document/doc/sample2.doc",
+    "name": "sample.doc",
+    "media_type": "application/msword",
+}
+
+
 class ApiV2Sample:
     """
     Пример работы с Webim External Bot API 2.0
     """
 
-    def __init__(self, api_domain, api_token, operator_id=None, department_id=None):
+    def __init__(self, api_domain, api_token, fwd_agent_id, fwd_department_key):
         self._api_domain = api_domain
         self._api_token = api_token
-        self._redirect_operator_id = operator_id
-        self._redirect_department_id = department_id
+        self._fwd_agent_id = fwd_agent_id
+        self._fwd_department_key = fwd_department_key
+
+        self._keyboard = self._build_keyboard()
+
+    def _build_keyboard(self):
+        keyboard = V2_SAMPLE_DEFAULT_KEYBOARD[:]
+        forward_row = []
+
+        if self._fwd_agent_id is not None:
+            forward_row.append(V2_SAMPLE_FWD_AGENT_BUTTON)
+        if self._fwd_department_key is not None:
+            forward_row.append(V2_SAMPLE_FWD_DEPARTMENT_BUTTON)
+
+        if forward_row:
+            keyboard.append(forward_row)
+
+        return keyboard
 
     async def webhook(self, request):
         """
         Обработчик HTTP-запросов со стороны Webim. В теле запроса получает обновления
         о событиях в чате, для ответа на сообщения отправляет ответные запросы к Webim
         """
+
         update = await request.json()
         logger.debug("API v2 received update:\n" + pretty_json(update))
 
@@ -84,58 +121,55 @@ class ApiV2Sample:
 
     async def _handle_new_chat(self, update):
         chat_id = update["chat"]["id"]
-        response_text = "Hi! Choose a button:"
-        await self._send_response(chat_id, response_text, self.send_text_message)
+        await self._send_text_and_keyboard(chat_id, V2_SAMPLE_GREETING_TEXT)
 
     async def _handle_new_message(self, update):
         chat_id = update["chat_id"]
         message = update["message"]
 
-        response_func = self.send_text_message
-        response_data = "You did not choose a button or sent a file. Try again:"
         if message["kind"] == "keyboard_response":
-            button_id = message['data']['button']['id']
-            if button_id in TEXT_BUTTON_IDS:
-                button_text = message["data"]["button"]["text"]
-                response_data = f"You chose {button_text}. Choose again:"
+            button_id = message["data"]["button"]["id"]
 
-            elif button_id in FILE_BUTTON_IDS:
-                if button_id == 'button-5':
-                    response_data = {
-                        'url': 'https://i.pinimg.com/originals/90/0a/b7/900ab76cf0c3b2fe8683e0e2039beb00.png',
-                        'name': 'shlepa.png',
-                        'media_type': 'image/png'
-                    }
-                elif button_id == 'button-6':
-                    response_data = {
-                        'url': 'https://filesamples.com/samples/document/doc/sample2.doc',
-                        'name': 'sample.doc',
-                        'media_type': 'application/msword'
-                    }
-                response_func = self.send_file
+            if button_id == ApiV2ButtonIds.SAY_HI:
+                await self._send_text_and_keyboard(chat_id, V2_SAMPLE_GREETING_TEXT)
 
-            elif button_id in CLOSE_BUTTON_ID:
+            elif button_id == ApiV2ButtonIds.SEND_IMAGE:
+                await self.send_file(chat_id, V2_SAMPLE_IMAGE)
+                await self._send_text_and_keyboard(chat_id, V2_SAMPLE_WHAT_NEXT_TEXT)
+
+            elif button_id == ApiV2ButtonIds.SEND_DOCUMENT:
+                await self.send_file(chat_id, V2_SAMPLE_DOCUMENT)
+                await self._send_text_and_keyboard(chat_id, V2_SAMPLE_WHAT_NEXT_TEXT)
+
+            elif button_id == ApiV2ButtonIds.CLOSE_CHAT:
+                await self.send_text_message(chat_id, V2_SAMPLE_FAREWELL_TEXT)
                 await self.close_chat(chat_id)
-                return
 
-            elif button_id in REDIRECT_BUTTON_IDS:
-                redirect_info = {}
-                if button_id == 'button-8':
-                    redirect_info = dict(operator_id=self._redirect_operator_id)
-                elif button_id == 'button-9':
-                    redirect_info = dict(dep_key=self._redirect_department_id)
-                await self.redirect_visitor(chat_id, redirect_info)
-                return
-        elif message['kind'] == 'file_visitor':
-            if message.get('data'):
-                response_data = f'File received successfully. File: {message["data"]}'
+            elif button_id == ApiV2ButtonIds.FORWARD_TO_AGENT:
+                forward_info = dict(operator_id=self._fwd_agent_id)
+                await self.send_text_message(chat_id, V2_SAMPLE_FAREWELL_TEXT)
+                await self.forward_chat(chat_id, forward_info)
+
+            elif button_id == ApiV2ButtonIds.FORWARD_TO_DEPARTMENT:
+                forward_info = dict(dep_key=self._fwd_department_key)
+                await self.send_text_message(chat_id, V2_SAMPLE_FAREWELL_TEXT)
+                await self.forward_chat(chat_id, forward_info)
+
             else:
-                response_data = 'An error occurred while transferring the file'
+                await self._send_text_and_keyboard(
+                    chat_id, V2_SAMPLE_DO_NOT_UNDERSTAND_TEXT
+                )
 
-        await self._send_response(chat_id, response_data, response_func)
+        elif message["kind"] == "file_visitor":
+            await self._send_text_and_keyboard(chat_id, V2_SAMPLE_FILE_RECEIVED_TEXT)
 
-    async def _send_response(self, chat_id, response_data, response_func):
-        await response_func(chat_id, response_data)
+        else:
+            await self._send_text_and_keyboard(
+                chat_id, V2_SAMPLE_DO_NOT_UNDERSTAND_TEXT
+            )
+
+    async def _send_text_and_keyboard(self, chat_id, text):
+        await self.send_text_message(chat_id, text)
         await self.send_keyboard(chat_id)
 
     async def send_text_message(self, chat_id, text):
@@ -153,17 +187,16 @@ class ApiV2Sample:
         """
         Отправить в чат клавиатуру с кнопками бота
         """
-        keyboard = KEYBOARD if self._redirect_department_id and self._redirect_operator_id else KEYBOARD[:3]
+
         message = dict(
             kind="keyboard",
-            buttons=keyboard,
+            buttons=self._keyboard,
         )
         return await self.send_message(chat_id, message)
 
     async def send_message(self, chat_id, message):
         """
-        Отправить сообщение в чат от имени бота. Сообщение передаётся через HTTP-запрос
-        к API Webim
+        Отправить сообщение в чат от имени бота
         """
 
         data = dict(
@@ -171,17 +204,40 @@ class ApiV2Sample:
             message=message,
         )
 
-        await self.make_request('send_message', data)
+        await self.make_request("send_message", data)
 
     async def close_chat(self, chat_id):
-        data = dict(chat_id=chat_id)
-        await self.make_request('close_chat', data)
+        """
+        Закрыть диалог с посетителем
+        """
 
-    async def redirect_visitor(self, chat_id, redirect_info):
-        data = dict(chat_id=chat_id, **redirect_info)
-        await self.make_request('redirect_chat', data)
+        data = dict(chat_id=chat_id)
+        await self.make_request("close_chat", data)
+
+    async def forward_chat(self, chat_id, forward_info):
+        """
+        Перенаправить диалог на заданного оператора или в заданный отдел
+        """
+
+        data = dict(chat_id=chat_id, **forward_info)
+        await self.make_request("redirect_chat", data)
+
+    async def send_file(self, chat_id, file_data):
+        """
+        Отправить в чат файл
+        """
+
+        message = dict(
+            kind="file_operator",
+            data=file_data,
+        )
+        await self.send_message(chat_id, message)
 
     async def make_request(self, method, data=None):
+        """
+        Выполнить HTTP-запрос к API Webim
+        """
+
         url = f"https://{self._api_domain}/api/bot/v2/" + method
         headers = {"Authorization": f"Token {self._api_token}"}
 
@@ -196,21 +252,31 @@ class ApiV2Sample:
             if error:
                 logger.error(f"API v2 request error: {error}")
 
-    async def send_file(self, chat_id, file_data):
-        """
-        Отправить в чат файл
-        """
-
-        message = dict(
-            kind="file_operator",
-            data=file_data,
-        )
-        await self.send_message(chat_id, message)
-
 
 ##
 # API 1.0
 ##
+
+
+class ApiV1ButtonIds(str, Enum):
+    SAY_HI = "say_hi"
+    SAY_BYE = "say_bye"
+    FORWARD_TO_QUEUE = "forward_to_queue"
+
+
+V1_SAMPLE_KEYBOARD = [
+    [
+        dict(id=ApiV1ButtonIds.SAY_HI, text="Say hi"),
+        dict(id=ApiV1ButtonIds.SAY_BYE, text="Say bye"),
+    ],
+    [
+        dict(id=ApiV1ButtonIds.FORWARD_TO_QUEUE, text="Forward to queue"),
+    ],
+]
+
+V1_SAMPLE_GREETING_TEXT = "Hi! I am External API 1.0 sample bot. What should I do?"
+V1_SAMPLE_FAREWELL_TEXT = "Bye! In case you come back, here is what I can do:"
+V1_SAMPLE_DO_NOT_UNDERSTAND_TEXT = "What do you mean? Here is what I can do:"
 
 
 class ApiV1Sample:
@@ -218,8 +284,8 @@ class ApiV1Sample:
     Пример работы с Webim External Bot API 1.0
     """
 
-    @staticmethod
-    async def webhook(request):
+    @classmethod
+    async def webhook(cls, request):
         """
         Обработчик HTTP-запросов со стороны Webim. В теле запроса получает обновления
         о событиях в чате, в ответе на запрос отправляет сообщения для посетителя
@@ -229,29 +295,39 @@ class ApiV1Sample:
         logger.debug("API v1 received update:\n" + pretty_json(update))
 
         if update["event"] == "new_chat":
-            response_text = "Hi! Choose a button:"
-        elif update["event"] == "new_message" and update["kind"] == "keyboard_response":
-            button_text = update["response"]["button"]["text"]
-            response_text = f"You chose {button_text}. Choose again:"
-        else:
-            response_text = "You did not choose a button. Try again:"
+            response = cls._text_and_keyboard_response(V1_SAMPLE_GREETING_TEXT)
 
-        response = dict(
+        elif update["event"] == "new_message" and update["kind"] == "keyboard_response":
+            button_id = update["response"]["button"]["id"]
+
+            if button_id == ApiV1ButtonIds.SAY_HI:
+                response = cls._text_and_keyboard_response(V1_SAMPLE_GREETING_TEXT)
+            elif button_id == ApiV1ButtonIds.SAY_BYE:
+                response = cls._text_and_keyboard_response(V1_SAMPLE_FAREWELL_TEXT)
+            elif button_id == ApiV1ButtonIds.FORWARD_TO_QUEUE:
+                response = dict(has_answer=False)
+
+        else:
+            response = cls._text_and_keyboard_response(V1_SAMPLE_DO_NOT_UNDERSTAND_TEXT)
+
+        logger.debug("API v1 sending response:\n" + pretty_json(response))
+        return web.json_response(response)
+
+    @staticmethod
+    def _text_and_keyboard_response(text):
+        return dict(
             has_answer=True,
             messages=[
                 dict(
                     kind="operator",
-                    text=response_text,
+                    text=text,
                 ),
                 dict(
                     kind="keyboard",
-                    buttons=KEYBOARD,
+                    buttons=V1_SAMPLE_KEYBOARD,
                 ),
             ],
         )
-
-        logger.debug("API v1 sending response:\n" + pretty_json(response))
-        return web.json_response(response)
 
 
 ##
@@ -274,21 +350,21 @@ if __name__ == "__main__":
     parser.add_argument(
         "--domain",
         dest="api_domain",
-        help="domain of Webim instance, e.g. demo.webim.ru, only required for API v2",
+        help="(required for API v2) domain of Webim instance, e.g. demo.webim.ru",
     )
     parser.add_argument(
         "--token",
         dest="api_token",
-        help="token from bot settings, only required for API v2",
+        help="(required for API v2) token from bot settings",
+    )
+    parser.add_argument(
+        "--agent-id", type=int, help="(API v2) add button to forward chat to this agent"
+    )
+    parser.add_argument(
+        "--dep-key", help="(API v2) add button to forward chat to this department"
     )
     parser.add_argument(
         "--debug", action="store_true", help="display verbose debug messages"
-    )
-    parser.add_argument(
-        '--operator', dest='operator_id', help='redirect operator id'
-    )
-    parser.add_argument(
-        '--department', dest='department_id', help='redirect department id'
     )
     args = parser.parse_args()
 
@@ -302,7 +378,9 @@ if __name__ == "__main__":
     routes = []
 
     if args.api_domain and args.api_token:
-        v2_bot = ApiV2Sample(args.api_domain, args.api_token, args.operator_id, args.department_id)
+        v2_bot = ApiV2Sample(
+            args.api_domain, args.api_token, args.agent_id, args.dep_key
+        )
         v2_route = web.post("/v2", v2_bot.webhook)
         routes.append(v2_route)
         logger.info(f"API v2 URL: http://{args.host}:{args.port}/v2")
