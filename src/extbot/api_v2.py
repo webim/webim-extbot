@@ -2,8 +2,9 @@
 
 
 from enum import Enum
+from json import JSONDecodeError
 
-from aiohttp import ClientSession, web
+from aiohttp import ClientError, ClientSession, ContentTypeError, web
 
 from .utils import pretty_json
 
@@ -86,25 +87,31 @@ class ApiV2Sample:
         """
 
         update = await request.json()
-        self._log.debug("API v2 received update:\n" + pretty_json(update))
+        self._log.debug("Received update:\n" + pretty_json(update))
+        event = update["event"]
 
-        if update["event"] == "new_chat":
+        if event == "new_chat":
             await self._handle_new_chat(update)
-        elif update["event"] == "new_message":
+        elif event == "new_message":
             await self._handle_new_message(update)
+        else:
+            self._log.warning(f"Unsupported event {event!r}")
 
         response = dict(result="ok")
         return web.json_response(response)
 
     async def _handle_new_chat(self, update):
         chat_id = update["chat"]["id"]
+        self._log.info(f"New chat {chat_id!r}")
         await self._send_text_and_keyboard(chat_id, GREETING_TEXT)
 
     async def _handle_new_message(self, update):
         chat_id = update["chat_id"]
+        self._log.info(f"New message in chat {chat_id!r}")
         message = update["message"]
+        message_kind = message["kind"]
 
-        if message["kind"] == "keyboard_response":
+        if message_kind == "keyboard_response":
             button_id = message["data"]["button"]["id"]
 
             if button_id == ButtonIds.SAY_HI:
@@ -133,12 +140,14 @@ class ApiV2Sample:
                 await self.forward_chat(chat_id, forward_info)
 
             else:
+                self._log.warning(f"Unexpected button id {button_id!r}")
                 await self._send_text_and_keyboard(chat_id, DO_NOT_UNDERSTAND_TEXT)
 
-        elif message["kind"] == "file_visitor":
+        elif message_kind == "file_visitor":
             await self._send_text_and_keyboard(chat_id, FILE_RECEIVED_TEXT)
 
         else:
+            self._log.warning(f"Unsupported message kind {message_kind!r}")
             await self._send_text_and_keyboard(chat_id, DO_NOT_UNDERSTAND_TEXT)
 
     async def _send_text_and_keyboard(self, chat_id, text):
@@ -208,21 +217,42 @@ class ApiV2Sample:
 
     async def make_request(self, method, data=None):
         """
-        Выполнить HTTP-запрос к API Webim
+        Выполнить HTTP-запрос к API Webim и обработать возможные ошибки
         """
 
-        url = f"https://{self._api_domain}/api/bot/v2/" + method
+        url = f"https://{self._api_domain}/api/bot/v2/{method}"
         headers = {"Authorization": f"Token {self._api_token}"}
 
+        self._log.debug(f"Requesting {url} with data:\n" + pretty_json(data))
+
         async with ClientSession() as http:
-            self._log.debug("API v2 sending message:\n" + pretty_json(data))
-            response = await http.post(url, headers=headers, json=data)
+            try:
+                response = await http.post(url, headers=headers, json=data)
+                response_content = await response.json()
+            except ContentTypeError:
+                ct = response.content_type
+                self._log.error(
+                    f"Webim returned unexpected Content-Type {ct!r} for url {url!r}"
+                )
+                return
+            except JSONDecodeError:
+                # если дошло до декодирования, то response уже определён и тело получено
+                body = await response.text()
+                self._log.error(f"Webim returned invalid json {body!r} for url {url!r}")
+                return
+            except ClientError as e:
+                self._log.error(f"Request error: {e}")
+                return
 
-            response_content = await response.json()
-            self._log.debug(
-                "API v2 received response:\n" + pretty_json(response_content)
+        self._log.debug("Received response:\n" + pretty_json(response_content))
+
+        if not response.ok or "error" in response_content:
+            error_details = dict(
+                status=response.status,
+                error=response_content.get("error"),
+                desc=response_content.get("desc"),
+                url=url,
             )
-
-            error = response_content.get("error")
-            if error:
-                self._log.error(f"API v2 request error: {error}")
+            error_items = (f"{k}={v!r}" for k, v in error_details.items() if v)
+            error_string = ", ".join(error_items)
+            self._log.error(f"Error returned by Webim: {error_string}")

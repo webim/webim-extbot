@@ -44,25 +44,39 @@ class ApiV1Sample:
         """
 
         update = await request.json()
-        self._log.debug("API v1 received update:\n" + pretty_json(update))
+        self._log.debug("Received update:\n" + pretty_json(update))
+        chat_id = update.get("chat", {}).get("id")
+        event = update["event"]
 
-        if update["event"] == "new_chat":
+        response = self._text_and_keyboard_response(DO_NOT_UNDERSTAND_TEXT)
+
+        if event == "new_chat":
+            self._log.info(f"New chat {chat_id!r}")
             response = self._text_and_keyboard_response(GREETING_TEXT)
 
-        elif update["event"] == "new_message" and update["kind"] == "keyboard_response":
-            button_id = update["response"]["button"]["id"]
+        elif event == "new_message":
+            self._log.info(f"New message in chat {chat_id!r}")
+            message_kind = update["kind"]
 
-            if button_id == ButtonIds.SAY_HI:
-                response = self._text_and_keyboard_response(GREETING_TEXT)
-            elif button_id == ButtonIds.SAY_BYE:
-                response = self._text_and_keyboard_response(FAREWELL_TEXT)
-            elif button_id == ButtonIds.FORWARD_TO_QUEUE:
-                response = dict(has_answer=False)
+            if message_kind == "keyboard_response":
+                button_id = update["response"]["button"]["id"]
+
+                if button_id == ButtonIds.SAY_HI:
+                    response = self._text_and_keyboard_response(GREETING_TEXT)
+                elif button_id == ButtonIds.SAY_BYE:
+                    response = self._text_and_keyboard_response(FAREWELL_TEXT)
+                elif button_id == ButtonIds.FORWARD_TO_QUEUE:
+                    response = dict(has_answer=False)
+                else:
+                    self._log.warning(f"Unexpected button id {button_id!r}")
+
+            elif message_kind != "visitor":
+                self._log.warning(f"Unsupported message kind {message_kind!r}")
 
         else:
-            response = self._text_and_keyboard_response(DO_NOT_UNDERSTAND_TEXT)
+            self._log.warning(f"Unsupported event {event!r}")
 
-        self._log.debug("API v1 sending response:\n" + pretty_json(response))
+        self._log.debug("Sending response:\n" + pretty_json(response))
         return web.json_response(response)
 
     @staticmethod

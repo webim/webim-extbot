@@ -13,7 +13,9 @@ from .api_v2 import ApiV2Sample
 
 
 def get_logger(debug):
-    formatter = logging.Formatter("[%(asctime)s] %(message)s", "%Y-%m-%d %H:%M:%S")
+    formatter = logging.Formatter(
+        "[%(asctime)s %(module)s] %(message)s", "%Y-%m-%d %H:%M:%S"
+    )
 
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(logging.DEBUG)
