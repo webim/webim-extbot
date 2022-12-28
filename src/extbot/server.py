@@ -10,6 +10,7 @@ from aiohttp import web
 from . import __version__
 from .api_v1 import ApiV1Sample
 from .api_v2 import ApiV2Sample
+from .router import ApiVersionRouter
 
 
 def get_logger(debug):
@@ -67,23 +68,33 @@ def main():
 
     logger = get_logger(args.debug)
 
-    routes = []
+    v1_bot = ApiV1Sample(logger)
+    logger.info("API v1 configured")
 
     if args.api_domain and args.api_token:
         v2_bot = ApiV2Sample(
             logger, args.api_domain, args.api_token, args.agent_id, args.dep_key
         )
-        v2_route = web.post("/v2", v2_bot.webhook)
-        routes.append(v2_route)
-        logger.info(f"API v2 URL: http://{args.host}:{args.port}/v2")
+        logger.info("API v2 configured")
     else:
-        logger.info("API v2 not available, see extbot --help for required arguments")
+        v2_bot = None
+        logger.info("API v2 not configured, see extbot --help for required arguments")
 
-    v1_bot = ApiV1Sample(logger)
-    v1_route = web.post("/v1", v1_bot.webhook)
-    routes.append(v1_route)
-    logger.info(f"API v1 URL: http://{args.host}:{args.port}/v1")
+    router = ApiVersionRouter(logger, v1_bot, v2_bot)
+
+    routes = [
+        web.post("/", router.index),
+        web.post("/v1", router.v1),
+        web.post("/v2", router.v2),
+    ]
 
     app = web.Application()
     app.add_routes(routes)
+
+    index_url = f"http://{args.host}:{args.port}/"
+
+    logger.info(f"API URL: {index_url} (Webim 10.3+)")
+    logger.info(
+        f"For older Webim releases specify API version with /v1 or /v2 in the URL"
+    )
     web.run_app(app, host=args.host, port=args.port, print=None)
