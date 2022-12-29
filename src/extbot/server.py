@@ -3,14 +3,20 @@
 
 import logging
 import sys
-from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
+from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser, ArgumentTypeError
+from string import ascii_letters, digits
 
+import validators
 from aiohttp import web
 
 from . import __version__
 from .api_v1 import ApiV1Sample
 from .api_v2 import ApiV2Sample
 from .router import ApiVersionRouter
+
+_PORT_MIN = 1
+_PORT_MAX = 65535
+_NAIVE_HOSTNAME_CHAR_SET = set(ascii_letters + digits + "_-")
 
 
 def get_logger(debug):
@@ -29,19 +35,69 @@ def get_logger(debug):
     return logger
 
 
+def validate_int(value):
+    try:
+        int_value = int(value)
+        if str(int_value) == value:
+            return int_value
+    except ValueError:
+        pass
+    raise ArgumentTypeError(f"expected integer, not {value!r}")
+
+
+
+def positive_int(value):
+    int_value = validate_int(value)
+    if int_value > 0:
+        return int_value
+    raise ArgumentTypeError(f"expected positive integer, not {value!r}")
+
+
+def tcp_port(value):
+    int_value = validate_int(value)
+    if _PORT_MIN <= int_value <= _PORT_MAX:
+        return int_value
+    raise ArgumentTypeError(
+        f"expected integer between {_PORT_MIN} and {_PORT_MAX}, not {value!r}"
+    )
+
+
+def domain(value):
+    if validators.domain(value):
+        return value
+    raise ArgumentTypeError(f"expected domain name, e.g. demo.webim.ru, not {value!r}")
+
+
+def server_address(value):
+    if (
+        validators.ipv4(value)
+        or validators.ipv6(value)
+        or validators.domain(value)
+        or all(c in _NAIVE_HOSTNAME_CHAR_SET for c in value)
+    ):
+        return value
+    raise ArgumentTypeError(f"expected ip address or hostname, not {value!r}")
+
+
 def get_argument_parser():
     parser = ArgumentParser(
         prog="extbot",
         description="Webim external bot sample",
         formatter_class=ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--host", default="localhost", help="bind webhook to this host")
     parser.add_argument(
-        "--port", default=8000, type=int, help="bind webhook to this port"
+        "--host",
+        default="localhost",
+        type=server_address,
+        help="bind webhook to this host",
+    )
+    parser.add_argument(
+        "--port", default=8000, type=tcp_port, help="bind webhook to this port"
     )
     parser.add_argument(
         "--domain",
         dest="api_domain",
+        type=domain,
         help="(required for API v2) domain of Webim instance, e.g. demo.webim.ru",
     )
     parser.add_argument(
@@ -50,7 +106,9 @@ def get_argument_parser():
         help="(required for API v2) token from bot settings",
     )
     parser.add_argument(
-        "--agent-id", type=int, help="(API v2) add button to forward chat to this agent"
+        "--agent-id",
+        type=positive_int,
+        help="(API v2) add button to forward chat to this agent",
     )
     parser.add_argument(
         "--dep-key", help="(API v2) add button to forward chat to this department"
