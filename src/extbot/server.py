@@ -45,7 +45,6 @@ def validate_int(value):
     raise ArgumentTypeError(f"expected integer, not {value!r}")
 
 
-
 def positive_int(value):
     int_value = validate_int(value)
     if int_value > 0:
