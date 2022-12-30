@@ -38,6 +38,8 @@ GREETING_TEXT = "Hi! I am External API 2.0 sample bot. What should I do?"
 DO_NOT_UNDERSTAND_TEXT = "What do you mean? Here is what I can do:"
 WHAT_NEXT_TEXT = "What should I do next?"
 FILE_RECEIVED_TEXT = "Thanks for the file. What should I do next?"
+FORWARD_TO_AGENT_TEXT = "Forwarding to agent {agent_id}. Bye!"
+FORWARD_TO_DEPARTMENT_TEXT = "Forwarding to department {dep_key}. Bye!"
 FAREWELL_TEXT = "Bye!"
 
 SAMPLE_IMAGE = {
@@ -131,12 +133,16 @@ class ApiV2Sample:
 
             elif button_id == ButtonIds.FORWARD_TO_AGENT:
                 forward_info = dict(operator_id=self._fwd_agent_id)
-                await self.send_text_message(chat_id, FAREWELL_TEXT)
+                forward_text = FORWARD_TO_AGENT_TEXT.format(agent_id=self._fwd_agent_id)
+                await self.send_text_message(chat_id, forward_text)
                 await self.forward_chat(chat_id, forward_info)
 
             elif button_id == ButtonIds.FORWARD_TO_DEPARTMENT:
                 forward_info = dict(dep_key=self._fwd_department_key)
-                await self.send_text_message(chat_id, FAREWELL_TEXT)
+                forward_text = FORWARD_TO_DEPARTMENT_TEXT.format(
+                    dep_key=self._fwd_department_key
+                )
+                await self.send_text_message(chat_id, forward_text)
                 await self.forward_chat(chat_id, forward_info)
 
             else:
