@@ -19,7 +19,8 @@ class ApiVersionRouter:
 
         full_api_version = f"{api_dialect} {api_version}".strip()
         self._log.debug(
-            f"Routing request from Webim version {webim_version!r}, Bot API version {full_api_version!r}"
+            f"Routing request from Webim version {webim_version!r}, Bot API version"
+            f" {full_api_version!r}"
         )
 
         if api_version.startswith("2."):
@@ -28,14 +29,15 @@ class ApiVersionRouter:
             return await self.v1(request)
         else:
             self._log.warning(
-                f"Received request with unexpected Bot API version {api_version!r}. Skipping"
+                f"Received request with unexpected Bot API version {api_version!r}."
+                " Skipping"
             )
             raise HTTPNotFound
 
     async def v2(self, request):
         if self._api_v2_bot is None:
             self._log.warning(
-                f"Received request for API v2 that is not configured. Skipping"
+                "Received request for API v2 that is not configured. Skipping"
             )
             raise HTTPNotFound
         return await self._api_v2_bot.webhook(request)

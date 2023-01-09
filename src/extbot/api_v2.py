@@ -43,7 +43,9 @@ FORWARD_TO_DEPARTMENT_TEXT = "Forwarding to department {dep_key}. Bye!"
 FAREWELL_TEXT = "Bye!"
 
 SAMPLE_IMAGE = {
-    "url": "https://i.pinimg.com/originals/90/0a/b7/900ab76cf0c3b2fe8683e0e2039beb00.png",
+    "url": (
+        "https://i.pinimg.com/originals/90/0a/b7/900ab76cf0c3b2fe8683e0e2039beb00.png"
+    ),
     "name": "shlepa.png",
     "media_type": "image/png",
 }

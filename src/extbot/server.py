@@ -164,7 +164,7 @@ def main():
 
     logger.info(f"API URL: {index_url} (Webim 10.3+)")
     logger.info(
-        f"For older Webim releases specify API version with /v1 or /v2 in the URL"
+        "For older Webim releases specify API version with /v1 or /v2 in the URL"
     )
 
     try:

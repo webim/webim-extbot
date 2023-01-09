@@ -32,8 +32,8 @@ setuptools.setup(
     ],
     extras_require={
         "dev": [
-            "black",
-            "isort",
+            "black ~= 22.12",
+            "ruff == 0.0.215",
         ],
     },
 )

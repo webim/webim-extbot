@@ -1,5 +1,10 @@
-[tool.isort]
-profile = "black"
+[tool.ruff]
+select = [
+    "E",  # Pyflakes
+    "F",  # pycodestyle
+    "I",  # isort
+]
+src = ["src"]
 
 [build-system]
 requires = ["setuptools"]
