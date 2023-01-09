@@ -51,7 +51,7 @@ extbot --domain demo.webim.ru --token my-secret-token
 ngrok http 8000
 ```
 
-И бот будет доступен по ссылке "Forwarding" из вывода ngrok.
+Бот будет доступен по ссылке "Forwarding" из экрана ngrok до тех пор, пока ngrok запущен.
 
 ## Подключение бота к Webim
 
