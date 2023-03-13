@@ -26,7 +26,10 @@ KEYBOARD = [
 
 GREETING_TEXT = "Hi! I am External API 1.0 sample bot. What should I do?"
 FAREWELL_TEXT = "Bye! In case you come back, here is what I can do:"
-DO_NOT_UNDERSTAND_TEXT = "What do you mean? Here is what I can do:"
+UNEXPECTED_UPDATE_TEXT = "Oops, I couldn't understand you. Here is what I can do:"
+DO_NOT_UNDERSTAND_TEXT = (
+    "I don't understand natural languages yet... But you can use my buttons:"
+)
 
 
 class ApiV1Sample:
@@ -48,7 +51,7 @@ class ApiV1Sample:
         chat_id = update.get("chat", {}).get("id")
         event = update["event"]
 
-        response = self._text_and_keyboard_response(DO_NOT_UNDERSTAND_TEXT)
+        response = self._text_and_keyboard_response(UNEXPECTED_UPDATE_TEXT)
 
         if event == "new_chat":
             self._log.info(f"New chat {chat_id!r}")
@@ -70,7 +73,10 @@ class ApiV1Sample:
                 else:
                     self._log.warning(f"Unexpected button id {button_id!r}")
 
-            elif message_kind != "visitor":
+            elif message_kind == "visitor":
+                response = self._text_and_keyboard_response(DO_NOT_UNDERSTAND_TEXT)
+
+            else:
                 self._log.warning(f"Unsupported message kind {message_kind!r}")
 
         else:

@@ -35,7 +35,10 @@ FWD_DEPARTMENT_BUTTON = dict(
 )
 
 GREETING_TEXT = "Hi! I am External API 2.0 sample bot. What should I do?"
-DO_NOT_UNDERSTAND_TEXT = "What do you mean? Here is what I can do:"
+UNEXPECTED_UPDATE_TEXT = "Oops, I couldn't understand you. Here is what I can do:"
+DO_NOT_UNDERSTAND_TEXT = (
+    "I don't understand natural languages yet... But you can use my buttons:"
+)
 WHAT_NEXT_TEXT = "What should I do next?"
 FILE_RECEIVED_TEXT = "Thanks for the file. What should I do next?"
 FORWARD_TO_AGENT_TEXT = "Forwarding to agent {agent_id}. Bye!"
@@ -149,14 +152,17 @@ class ApiV2Sample:
 
             else:
                 self._log.warning(f"Unexpected button id {button_id!r}")
-                await self._send_text_and_keyboard(chat_id, DO_NOT_UNDERSTAND_TEXT)
+                await self._send_text_and_keyboard(chat_id, UNEXPECTED_UPDATE_TEXT)
 
         elif message_kind == "file_visitor":
             await self._send_text_and_keyboard(chat_id, FILE_RECEIVED_TEXT)
 
+        elif message_kind == "visitor":
+            await self._send_text_and_keyboard(chat_id, DO_NOT_UNDERSTAND_TEXT)
+
         else:
             self._log.warning(f"Unsupported message kind {message_kind!r}")
-            await self._send_text_and_keyboard(chat_id, DO_NOT_UNDERSTAND_TEXT)
+            await self._send_text_and_keyboard(chat_id, UNEXPECTED_UPDATE_TEXT)
 
     async def _send_text_and_keyboard(self, chat_id, text):
         await self.send_text_message(chat_id, text)
