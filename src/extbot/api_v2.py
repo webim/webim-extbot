@@ -5,6 +5,7 @@ from enum import Enum
 from json import JSONDecodeError
 
 from aiohttp import ClientError, ClientSession, ContentTypeError, web
+from aiojobs import Scheduler
 
 from .utils import pretty_json
 
@@ -72,6 +73,25 @@ class ApiV2Sample:
         self._fwd_department_key = fwd_department_key
 
         self._keyboard = self._build_keyboard()
+        self._init_async_done = False
+
+    def _init_async(self):
+        """
+        Проинициализировать атрибуты, которые необходимо инициализировать внутри event
+        loop. Если инициализация уже произошла ранее, то ничего не делать
+        """
+
+        if self._init_async_done:
+            return
+
+        self._api_session = ClientSession()
+        self._background = Scheduler()
+        self._init_async_done = True
+
+    async def cleanup(self, *_):
+        if self._init_async_done:
+            await self._api_session.close()
+            await self._background.close()
 
     def _build_keyboard(self):
         keyboard = DEFAULT_KEYBOARD[:]
@@ -93,7 +113,15 @@ class ApiV2Sample:
         о событиях в чате, для ответа на сообщения отправляет ответные запросы к Webim
         """
 
+        self._init_async()
+
         update = await request.json()
+        await self._background.spawn(self._handle_update(update))
+
+        response = dict(result="ok")
+        return web.json_response(response)
+
+    async def _handle_update(self, update):
         self._log.debug("Received update:\n" + pretty_json(update))
         event = update["event"]
 
@@ -103,9 +131,6 @@ class ApiV2Sample:
             await self._handle_new_message(update)
         else:
             self._log.warning(f"Unsupported event {event!r}")
-
-        response = dict(result="ok")
-        return web.json_response(response)
 
     async def _handle_new_chat(self, update):
         chat_id = update["chat"]["id"]
@@ -239,24 +264,23 @@ class ApiV2Sample:
 
         self._log.debug(f"Requesting {url} with data:\n" + pretty_json(data))
 
-        async with ClientSession() as http:
-            try:
-                response = await http.post(url, headers=headers, json=data)
-                response_content = await response.json()
-            except ContentTypeError:
-                ct = response.content_type
-                self._log.error(
-                    f"Webim returned unexpected Content-Type {ct!r} for url {url!r}"
-                )
-                return
-            except JSONDecodeError:
-                # если дошло до декодирования, то response уже определён и тело получено
-                body = await response.text()
-                self._log.error(f"Webim returned invalid json {body!r} for url {url!r}")
-                return
-            except ClientError as e:
-                self._log.error(f"Request error: {e}")
-                return
+        try:
+            response = await self._api_session.post(url, headers=headers, json=data)
+            response_content = await response.json()
+        except ContentTypeError:
+            ct = response.content_type
+            self._log.error(
+                f"Webim returned unexpected Content-Type {ct!r} for url {url!r}"
+            )
+            return
+        except JSONDecodeError:
+            # если дошло до декодирования, то response уже определён и тело получено
+            body = await response.text()
+            self._log.error(f"Webim returned invalid json {body!r} for url {url!r}")
+            return
+        except ClientError as e:
+            self._log.error(f"Request error: {e}")
+            return
 
         self._log.debug("Received response:\n" + pretty_json(response_content))
 

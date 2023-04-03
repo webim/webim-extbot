@@ -133,6 +133,8 @@ def main():
     parser = get_argument_parser()
     args = parser.parse_args()
 
+    app = web.Application()
+
     logger = get_logger(args.debug)
 
     v1_bot = ApiV1Sample(logger)
@@ -142,6 +144,7 @@ def main():
         v2_bot = ApiV2Sample(
             logger, args.api_domain, args.api_token, args.agent_id, args.dep_key
         )
+        app.on_cleanup.append(v2_bot.cleanup)
         logger.info("API v2 configured")
     else:
         v2_bot = None
@@ -154,8 +157,6 @@ def main():
         web.post("/v1", router.v1),
         web.post("/v2", router.v2),
     ]
-
-    app = web.Application()
     app.add_routes(routes)
 
     loop = get_event_loop()

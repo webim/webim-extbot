@@ -28,6 +28,7 @@ setuptools.setup(
     },
     install_requires=[
         "aiohttp ~= 3.8",
+        "aiojobs ~= 1.1",
         "validators ~= 0.20.0",
     ],
     extras_require={
