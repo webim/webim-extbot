@@ -6,7 +6,7 @@ import setuptools
 
 def get_version():
     init_path = Path(__file__).parent / "src" / "extbot" / "__init__.py"
-    init_contents = init_path.read_text()
+    init_contents = init_path.read_text(encoding="utf-8")
 
     match = re.search('^__version__ = "([^"]*)"$', init_contents, re.M)
     if match is None:
