@@ -33,11 +33,11 @@ setuptools.setup(
     ],
     extras_require={
         "dev": [
-            "black ~= 22.12",
+            "black ~= 23.3",
             "coverage ~= 7.2",
             "pytest ~= 7.2",
             "pytest-aiohttp ~= 1.0",
-            "ruff == 0.0.215",
+            "ruff == 0.0.260",
         ],
     },
 )
