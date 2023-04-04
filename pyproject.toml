@@ -1,10 +1,17 @@
+[tool.coverage.run]
+command_line = "-m pytest tests"
+source = ["src"]
+
+[tool.coverage.report]
+show_missing = true
+
 [tool.ruff]
 select = [
     "E",  # Pyflakes
     "F",  # pycodestyle
     "I",  # isort
 ]
-src = ["src"]
+src = ["src", "tests"]
 
 [build-system]
 requires = ["setuptools"]

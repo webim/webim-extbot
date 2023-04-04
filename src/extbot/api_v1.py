@@ -14,14 +14,13 @@ class ButtonIds(str, Enum):
     FORWARD_TO_QUEUE = "forward_to_queue"
 
 
+SAY_HI_BUTTON = dict(id=ButtonIds.SAY_HI, text="Say hi")
+SAY_BYE_BUTTON = dict(id=ButtonIds.SAY_BYE, text="Say bye")
+FORWARD_TO_QUEUE_BUTTON = dict(id=ButtonIds.FORWARD_TO_QUEUE, text="Forward to queue")
+
 KEYBOARD = [
-    [
-        dict(id=ButtonIds.SAY_HI, text="Say hi"),
-        dict(id=ButtonIds.SAY_BYE, text="Say bye"),
-    ],
-    [
-        dict(id=ButtonIds.FORWARD_TO_QUEUE, text="Forward to queue"),
-    ],
+    [SAY_HI_BUTTON, SAY_BYE_BUTTON],
+    [FORWARD_TO_QUEUE_BUTTON],
 ]
 
 GREETING_TEXT = "Hi! I am External API 1.0 sample bot. What should I do?"

@@ -1,7 +1,7 @@
 """Реализация маршрутизатора для автоматического определения версии API"""
 
 
-from aiohttp.web import HTTPNotFound
+from aiohttp import web
 
 
 class ApiVersionRouter:
@@ -11,6 +11,13 @@ class ApiVersionRouter:
         self._log = logger
         self._api_v1_bot = api_v1_bot
         self._api_v2_bot = api_v2_bot
+
+    def get_routes(self):
+        return [
+            web.post("/", self.index),
+            web.post("/v1", self.v1),
+            web.post("/v2", self.v2),
+        ]
 
     async def index(self, request):
         api_dialect = request.headers.get("X-Bot-API-Dialect", "")
@@ -32,14 +39,14 @@ class ApiVersionRouter:
                 f"Received request with unexpected Bot API version {api_version!r}."
                 " Skipping"
             )
-            raise HTTPNotFound
+            raise web.HTTPNotFound
 
     async def v2(self, request):
         if self._api_v2_bot is None:
             self._log.warning(
                 "Received request for API v2 that is not configured. Skipping"
             )
-            raise HTTPNotFound
+            raise web.HTTPNotFound
         return await self._api_v2_bot.webhook(request)
 
     async def v1(self, request):

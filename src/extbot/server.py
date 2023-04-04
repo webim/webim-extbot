@@ -152,11 +152,7 @@ def main():
 
     router = ApiVersionRouter(logger, v1_bot, v2_bot)
 
-    routes = [
-        web.post("/", router.index),
-        web.post("/v1", router.v1),
-        web.post("/v2", router.v2),
-    ]
+    routes = router.get_routes()
     app.add_routes(routes)
 
     loop = get_event_loop()
