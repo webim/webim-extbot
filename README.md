@@ -24,10 +24,8 @@ Extbot — пример чат-бота для [Webim](https://webim.ru/). Extbo
 Установить бота можно командой:
 
 ```shell
-pip install "<ссылка-на-пакет>"
+pip install "https://github.com/webim/webim-extbot/archive/refs/heads/main.zip"
 ```
-
-Где `<ссылка-на-пакет>` — путь до этого репозитория или ссылка на его скачивание в формате ZIP.
 
 Чтобы проверить, что бот установлен, можно посмотреть его справку:
 
