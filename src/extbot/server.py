@@ -1,7 +1,6 @@
 """Модуль настроек логирования и запуска бота"""
 
 
-import asyncio
 import logging
 import sys
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser, ArgumentTypeError
@@ -18,15 +17,6 @@ from .router import ApiVersionRouter
 _PORT_MIN = 1
 _PORT_MAX = 65535
 _NAIVE_HOSTNAME_CHAR_SET = set(ascii_letters + digits + "_-")
-
-
-def get_event_loop():
-    loop = asyncio.new_event_loop()
-    # aiohttp передаёт исключения при запуске сервера в loop.call_exception_handler, но
-    # в вызов web.run_app исключение тоже пробрасывается; чтобы дважды не обрабатывать,
-    # в exception handler'е игнорируем
-    loop.set_exception_handler(lambda _loop, _context: ...)
-    return loop
 
 
 def get_logger(debug):
@@ -157,13 +147,11 @@ def main():
     routes = router.get_routes()
     app.add_routes(routes)
 
-    loop = get_event_loop()
-
     index_url = f"http://{args.host}:{args.port}/"
     logger.info(f"Exbot is running on {index_url}")
 
     try:
-        web.run_app(app, host=args.host, port=args.port, print=None, loop=loop)
+        web.run_app(app, host=args.host, port=args.port, print=None)
     except Exception as e:
         logger.critical(f"Error running server on {index_url}: {e}")
         sys.exit(1)
