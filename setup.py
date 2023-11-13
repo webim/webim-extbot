@@ -20,7 +20,7 @@ setuptools.setup(
     version=get_version(),
     package_dir={"": "src"},
     packages=setuptools.find_packages(where="src"),
-    python_requires=">=3.6",
+    python_requires=">=3.8",
     entry_points={
         "console_scripts": [
             "extbot=extbot.server:main",
@@ -28,16 +28,16 @@ setuptools.setup(
     },
     install_requires=[
         "aiohttp ~= 3.8",
-        "aiojobs ~= 1.1",
-        "validators ~= 0.20.0",
+        "aiojobs ~= 1.2",
+        "validators ~= 0.22.0",
     ],
     extras_require={
         "dev": [
-            "black ~= 23.3",
-            "coverage ~= 7.2",
-            "pytest ~= 7.2",
+            "black ~= 23.11",
+            "coverage ~= 7.3",
+            "pytest ~= 7.4",
             "pytest-aiohttp ~= 1.0",
-            "ruff == 0.0.260",
+            "ruff ~= 0.1.5",
         ],
     },
 )
