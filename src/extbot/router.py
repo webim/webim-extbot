@@ -26,25 +26,33 @@ class ApiVersionRouter:
 
         full_api_version = f"{api_dialect} {api_version}".strip()
         self._log.debug(
-            f"Routing request from Webim version {webim_version!r}, Bot API version"
-            f" {full_api_version!r}"
+            f"Routing request from Webim version {webim_version!r},"
+            f" Bot API version {full_api_version!r}"
         )
 
         if api_version.startswith("2."):
             return await self.v2(request)
         elif api_version.startswith("1."):
             return await self.v1(request)
+        elif not api_version:
+            self._log.warning(
+                "Received request but could not decide which Bot API version to use."
+                " This can happen if you are using an old or non-standard Webim"
+                " release. In that case specify Bot API version by adding /v2 or /v1"
+                " suffix to Exbot's API URL in Webim settings"
+            )
+            raise web.HTTPNotFound
         else:
             self._log.warning(
-                f"Received request with unexpected Bot API version {api_version!r}."
-                " Skipping"
+                f"Rejecting request with unsupported Bot API version {api_version!r}."
             )
             raise web.HTTPNotFound
 
     async def v2(self, request):
         if self._api_v2_bot is None:
             self._log.warning(
-                "Received request for API v2 that is not configured. Skipping"
+                "Rejecting request for Bot API v2 that is not configured."
+                " See extbot --help for the required arguments"
             )
             raise web.HTTPNotFound
         return await self._api_v2_bot.webhook(request)

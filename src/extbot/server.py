@@ -138,17 +138,19 @@ def main():
     logger = get_logger(args.debug)
 
     v1_bot = ApiV1Sample(logger)
-    logger.info("API v1 configured")
 
     if args.api_domain and args.api_token:
         v2_bot = ApiV2Sample(
             logger, args.api_domain, args.api_token, args.agent_id, args.dep_key
         )
         app.on_cleanup.append(v2_bot.cleanup)
-        logger.info("API v2 configured")
     else:
         v2_bot = None
-        logger.info("API v2 not configured, see extbot --help for required arguments")
+        logger.warning(
+            "Only legacy Bot API v1 will be available."
+            " If you intend to use Bot API v2,"
+            " see extbot --help for the required arguments"
+        )
 
     router = ApiVersionRouter(logger, v1_bot, v2_bot)
 
@@ -158,11 +160,7 @@ def main():
     loop = get_event_loop()
 
     index_url = f"http://{args.host}:{args.port}/"
-
-    logger.info(f"API URL: {index_url} (Webim 10.3+)")
-    logger.info(
-        "For older Webim releases specify API version with /v1 or /v2 in the URL"
-    )
+    logger.info(f"Exbot is running on {index_url}")
 
     try:
         web.run_app(app, host=args.host, port=args.port, print=None, loop=loop)
