@@ -33,7 +33,6 @@ setuptools.setup(
     ],
     extras_require={
         "dev": [
-            "black ~= 23.11",
             "coverage ~= 7.3",
             "pytest ~= 7.4",
             "pytest-aiohttp ~= 1.0",
