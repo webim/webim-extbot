@@ -1,9 +1,9 @@
 """Модуль настроек логирования и запуска бота"""
 
 
+import argparse
 import logging
 import sys
-from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser, ArgumentTypeError
 from string import ascii_letters, digits
 
 import validators
@@ -19,7 +19,7 @@ _PORT_MAX = 65535
 _NAIVE_HOSTNAME_CHAR_SET = set(ascii_letters + digits + "_-")
 
 
-def get_logger(debug):
+def get_logger(verbose):
     formatter = logging.Formatter(
         "[%(asctime)s %(module)s] %(message)s", "%Y-%m-%d %H:%M:%S"
     )
@@ -30,7 +30,7 @@ def get_logger(debug):
 
     logger = logging.getLogger("extbot")
     logger.addHandler(handler)
-    logger.setLevel(logging.DEBUG if debug else logging.INFO)
+    logger.setLevel(logging.DEBUG if verbose else logging.INFO)
 
     return logger
 
@@ -42,21 +42,21 @@ def validate_int(value):
             return int_value
     except ValueError:
         pass
-    raise ArgumentTypeError(f"expected integer, not {value!r}")
+    raise argparse.ArgumentTypeError(f"expected integer, not {value!r}")
 
 
 def positive_int(value):
     int_value = validate_int(value)
     if int_value > 0:
         return int_value
-    raise ArgumentTypeError(f"expected positive integer, not {value!r}")
+    raise argparse.ArgumentTypeError(f"expected positive integer, not {value!r}")
 
 
 def tcp_port(value):
     int_value = validate_int(value)
     if _PORT_MIN <= int_value <= _PORT_MAX:
         return int_value
-    raise ArgumentTypeError(
+    raise argparse.ArgumentTypeError(
         f"expected integer between {_PORT_MIN} and {_PORT_MAX}, not {value!r}"
     )
 
@@ -64,7 +64,9 @@ def tcp_port(value):
 def domain(value):
     if validators.domain(value):
         return value
-    raise ArgumentTypeError(f"expected domain name, e.g. demo.webim.ru, not {value!r}")
+    raise argparse.ArgumentTypeError(
+        f"expected domain name, e.g. demo.webim.ru, not {value!r}"
+    )
 
 
 def server_address(value):
@@ -75,14 +77,14 @@ def server_address(value):
         or all(c in _NAIVE_HOSTNAME_CHAR_SET for c in value)
     ):
         return value
-    raise ArgumentTypeError(f"expected ip address or hostname, not {value!r}")
+    raise argparse.ArgumentTypeError(f"expected ip address or hostname, not {value!r}")
 
 
 def get_argument_parser():
-    parser = ArgumentParser(
+    parser = argparse.ArgumentParser(
         prog="extbot",
         description="Webim external bot sample",
-        formatter_class=ArgumentDefaultsHelpFormatter,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
         "--host",
@@ -113,7 +115,12 @@ def get_argument_parser():
         "--dep-key", help="(API v2) add button to forward chat to this department"
     )
     parser.add_argument(
-        "--debug", action="store_true", help="display verbose debug messages"
+        "--debug",  # deprecated
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--verbose", action="store_true", help="print verbose messages to stdout"
     )
     parser.add_argument("--version", action="version", version=__version__)
     return parser
@@ -125,7 +132,13 @@ def main():
 
     app = web.Application()
 
-    logger = get_logger(args.debug)
+    logger = get_logger(args.verbose or args.debug)
+
+    if args.debug:
+        logger.warning(
+            "--debug is deprecated and will be removed in a future Extbot version."
+            " Please use --verbose instead"
+        )
 
     v1_bot = ApiV1Sample(logger)
 
