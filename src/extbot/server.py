@@ -114,6 +114,11 @@ def get_argument_parser():
     parser.add_argument(
         "--dep-key", help="(API v2) add button to forward chat to this department"
     )
+    parser.add_argument("--custom-button", help="add extra button with this text")
+    parser.add_argument(
+        "--custom-button-response",
+        help="respond with this text when the custom button is clicked",
+    )
     parser.add_argument(
         "--debug",  # deprecated
         action="store_true",
@@ -140,11 +145,17 @@ def main():
             " Please use --verbose instead"
         )
 
-    v1_bot = ApiV1Sample(logger)
+    v1_bot = ApiV1Sample(logger, args.custom_button, args.custom_button_response)
 
     if args.api_domain and args.api_token:
         v2_bot = ApiV2Sample(
-            logger, args.api_domain, args.api_token, args.agent_id, args.dep_key
+            logger,
+            args.api_domain,
+            args.api_token,
+            args.agent_id,
+            args.dep_key,
+            args.custom_button,
+            args.custom_button_response,
         )
         app.on_cleanup.append(v2_bot.cleanup)
     else:

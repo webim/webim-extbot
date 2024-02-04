@@ -17,18 +17,23 @@ class ButtonIds(str, Enum):
     SAY_HI = "say_hi"
     SAY_BYE = "say_bye"
     FORWARD_TO_QUEUE = "forward_to_queue"
+    CUSTOM = "custom"
 
 
 SAY_HI_BUTTON = dict(id=ButtonIds.SAY_HI, text="Say hi")
 SAY_BYE_BUTTON = dict(id=ButtonIds.SAY_BYE, text="Say bye")
 FORWARD_TO_QUEUE_BUTTON = dict(id=ButtonIds.FORWARD_TO_QUEUE, text="Forward to queue")
 
-KEYBOARD = [
+DEFAULT_KEYBOARD = [
     [SAY_HI_BUTTON, SAY_BYE_BUTTON],
     [FORWARD_TO_QUEUE_BUTTON],
 ]
 
 GREETING_TEXT = "Hi! I am External API 1.0 sample bot. What should I do?"
+DEFAULT_CUSTOM_BUTTON_TEXT = "Custom button"
+DEFAULT_CUSTOM_BUTTON_RESPONSE_TEXT = (
+    "Wow, you clicked my custom button. What should I do next?"
+)
 FAREWELL_TEXT = "Bye! In case you come back, here is what I can do:"
 UNEXPECTED_UPDATE_TEXT = "Oops, I couldn't understand you. Here is what I can do:"
 DO_NOT_UNDERSTAND_TEXT = (
@@ -41,8 +46,23 @@ class ApiV1Sample:
     Пример работы с Webim External Bot API 1.0
     """
 
-    def __init__(self, logger):
+    def __init__(self, logger, custom_button_text, custom_button_response):
         self._log = logger
+        self._custom_button_text = custom_button_text
+        self._custom_button_response = custom_button_response
+        self._keyboard = self._build_keyboard()
+
+    def _build_keyboard(self):
+        keyboard = DEFAULT_KEYBOARD[:]
+
+        if self._custom_button_text or self._custom_button_response:
+            custom_button = dict(
+                id=ButtonIds.CUSTOM,
+                text=self._custom_button_text or DEFAULT_CUSTOM_BUTTON_TEXT,
+            )
+            keyboard.append([custom_button])
+
+        return keyboard
 
     async def webhook(self, request):
         """
@@ -74,6 +94,11 @@ class ApiV1Sample:
                     response = self._text_and_keyboard_response(FAREWELL_TEXT)
                 elif button_id == ButtonIds.FORWARD_TO_QUEUE:
                     response = dict(has_answer=False)
+                elif button_id == ButtonIds.CUSTOM:
+                    response = self._text_and_keyboard_response(
+                        self._custom_button_response
+                        or DEFAULT_CUSTOM_BUTTON_RESPONSE_TEXT
+                    )
                 else:
                     self._log.warning(f"Unexpected button id {button_id!r}")
 
@@ -89,8 +114,7 @@ class ApiV1Sample:
         self._log.debug("Sending response:\n" + pretty_json(response))
         return web.json_response(response)
 
-    @staticmethod
-    def _text_and_keyboard_response(text):
+    def _text_and_keyboard_response(self, text):
         return dict(
             has_answer=True,
             messages=[
@@ -100,7 +124,7 @@ class ApiV1Sample:
                 ),
                 dict(
                     kind="keyboard",
-                    buttons=KEYBOARD,
+                    buttons=self._keyboard,
                 ),
             ],
         )

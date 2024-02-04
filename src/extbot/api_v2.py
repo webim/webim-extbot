@@ -17,6 +17,7 @@ class ButtonIds(str, Enum):
     SEND_DOCUMENT = "send_document"
     FORWARD_TO_AGENT = "forward_to_agent"
     FORWARD_TO_DEPARTMENT = "forward_to_department"
+    CUSTOM = "custom"
 
 
 DEFAULT_KEYBOARD = [
@@ -44,6 +45,10 @@ WHAT_NEXT_TEXT = "What should I do next?"
 FILE_RECEIVED_TEXT = "Thanks for the file. What should I do next?"
 FORWARD_TO_AGENT_TEXT = "Forwarding to agent {agent_id}. Bye!"
 FORWARD_TO_DEPARTMENT_TEXT = "Forwarding to department {dep_key}. Bye!"
+DEFAULT_CUSTOM_BUTTON_TEXT = "Custom button"
+DEFAULT_CUSTOM_BUTTON_RESPONSE_TEXT = (
+    "Wow, you clicked my custom button. What should I do next?"
+)
 FAREWELL_TEXT = "Bye!"
 
 SAMPLE_IMAGE = {
@@ -65,12 +70,23 @@ class ApiV2Sample:
     Пример работы с Webim External Bot API 2.0
     """
 
-    def __init__(self, logger, api_domain, api_token, fwd_agent_id, fwd_department_key):
+    def __init__(
+        self,
+        logger,
+        api_domain,
+        api_token,
+        fwd_agent_id,
+        fwd_department_key,
+        custom_button_text,
+        custom_button_response,
+    ):
         self._log = logger
         self._api_domain = api_domain
         self._api_token = api_token
         self._fwd_agent_id = fwd_agent_id
         self._fwd_department_key = fwd_department_key
+        self._custom_button_text = custom_button_text
+        self._custom_button_response = custom_button_response
 
         self._keyboard = self._build_keyboard()
         self._init_async_done = False
@@ -104,6 +120,13 @@ class ApiV2Sample:
 
         if forward_row:
             keyboard.append(forward_row)
+
+        if self._custom_button_text or self._custom_button_response:
+            custom_button = dict(
+                id=ButtonIds.CUSTOM,
+                text=self._custom_button_text or DEFAULT_CUSTOM_BUTTON_TEXT,
+            )
+            keyboard.append([custom_button])
 
         return keyboard
 
@@ -174,6 +197,12 @@ class ApiV2Sample:
                 )
                 await self.send_text_message(chat_id, forward_text)
                 await self.forward_chat(chat_id, forward_info)
+
+            elif button_id == ButtonIds.CUSTOM:
+                await self._send_text_and_keyboard(
+                    chat_id,
+                    self._custom_button_response or DEFAULT_CUSTOM_BUTTON_RESPONSE_TEXT,
+                )
 
             else:
                 self._log.warning(f"Unexpected button id {button_id!r}")
