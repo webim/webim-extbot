@@ -29,6 +29,7 @@ setuptools.setup(
     install_requires=[
         "aiohttp ~= 3.8",
         "aiojobs ~= 1.2",
+        "packaging",  # Not semver and may already be installed
         "validators ~= 0.22.0",
     ],
     extras_require={

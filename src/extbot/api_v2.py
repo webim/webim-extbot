@@ -6,8 +6,9 @@ from json import JSONDecodeError
 
 from aiohttp import ClientError, ClientSession, ContentTypeError, web
 from aiojobs import Scheduler
+from packaging.version import parse as parse_version
 
-from .utils import pretty_json
+from .utils import pretty_json, to_nested
 
 
 class ButtonIds(str, Enum):
@@ -17,6 +18,7 @@ class ButtonIds(str, Enum):
     SEND_DOCUMENT = "send_document"
     FORWARD_TO_AGENT = "forward_to_agent"
     FORWARD_TO_DEPARTMENT = "forward_to_department"
+    FORWARD_TO_QUEUE = "forward_to_queue"
     CUSTOM = "custom"
 
 
@@ -35,6 +37,9 @@ FWD_AGENT_BUTTON = dict(id=ButtonIds.FORWARD_TO_AGENT, text="Forward to agent")
 FWD_DEPARTMENT_BUTTON = dict(
     id=ButtonIds.FORWARD_TO_DEPARTMENT, text="Forward to department"
 )
+FWD_QUEUE_BUTTON = dict(id=ButtonIds.FORWARD_TO_QUEUE, text="Forward to queue")
+
+PREFERRED_BUTTONS_PER_ROW = 2
 
 GREETING_TEXT = "Hi! I am External API 2.0 sample bot. What should I do?"
 UNEXPECTED_UPDATE_TEXT = "Oops, I couldn't understand you. Here is what I can do:"
@@ -45,6 +50,7 @@ WHAT_NEXT_TEXT = "What should I do next?"
 FILE_RECEIVED_TEXT = "Thanks for the file. What should I do next?"
 FORWARD_TO_AGENT_TEXT = "Forwarding to agent {agent_id}. Bye!"
 FORWARD_TO_DEPARTMENT_TEXT = "Forwarding to department {dep_key}. Bye!"
+FORWARD_TO_QUEUE_TEXT = "Forwarding to queue. Bye!"
 DEFAULT_CUSTOM_BUTTON_TEXT = "Custom button"
 DEFAULT_CUSTOM_BUTTON_RESPONSE_TEXT = (
     "Wow, you clicked my custom button. What should I do next?"
@@ -88,7 +94,7 @@ class ApiV2Sample:
         self._custom_button_text = custom_button_text
         self._custom_button_response = custom_button_response
 
-        self._keyboard = self._build_keyboard()
+        self._webim_version = None
         self._init_async_done = False
 
     def _init_async(self):
@@ -111,15 +117,17 @@ class ApiV2Sample:
 
     def _build_keyboard(self):
         keyboard = DEFAULT_KEYBOARD[:]
-        forward_row = []
+        forward_buttons = []
 
         if self._fwd_agent_id is not None:
-            forward_row.append(FWD_AGENT_BUTTON)
+            forward_buttons.append(FWD_AGENT_BUTTON)
         if self._fwd_department_key is not None:
-            forward_row.append(FWD_DEPARTMENT_BUTTON)
+            forward_buttons.append(FWD_DEPARTMENT_BUTTON)
+        if self._webim_version and self._webim_version >= parse_version("10.4"):
+            forward_buttons.append(FWD_QUEUE_BUTTON)
 
-        if forward_row:
-            keyboard.append(forward_row)
+        forward_rows = to_nested(forward_buttons, PREFERRED_BUTTONS_PER_ROW)
+        keyboard.extend(forward_rows)
 
         if self._custom_button_text or self._custom_button_response:
             custom_button = dict(
@@ -137,12 +145,18 @@ class ApiV2Sample:
         """
 
         self._init_async()
+        self._webim_version = self._extract_webim_version(request)
 
         update = await request.json()
         await self._background.spawn(self._handle_update(update))
 
         response = dict(result="ok")
         return web.json_response(response)
+
+    @staticmethod
+    def _extract_webim_version(request):
+        value = request.headers.get("X-Webim-Version")
+        return parse_version(value) if value else None
 
     async def _handle_update(self, update):
         self._log.debug("Received update:\n" + pretty_json(update))
@@ -198,6 +212,10 @@ class ApiV2Sample:
                 await self.send_text_message(chat_id, forward_text)
                 await self.forward_chat(chat_id, forward_info)
 
+            elif button_id == ButtonIds.FORWARD_TO_QUEUE:
+                await self.send_text_message(chat_id, FORWARD_TO_QUEUE_TEXT)
+                await self.forward_chat(chat_id, dict())
+
             elif button_id == ButtonIds.CUSTOM:
                 await self._send_text_and_keyboard(
                     chat_id,
@@ -240,7 +258,7 @@ class ApiV2Sample:
 
         message = dict(
             kind="keyboard",
-            buttons=self._keyboard,
+            buttons=self._build_keyboard(),
         )
         return await self.send_message(chat_id, message)
 
