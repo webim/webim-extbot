@@ -27,17 +27,17 @@ setuptools.setup(
         ],
     },
     install_requires=[
-        "aiohttp ~= 3.8",
+        "aiohttp ~= 3.9",
         "aiojobs ~= 1.2",
         "packaging",  # Not semver and may already be installed
         "validators ~= 0.22.0",
     ],
     extras_require={
         "dev": [
-            "coverage ~= 7.3",
+            "coverage ~= 7.4",
             "pytest ~= 7.4",
             "pytest-aiohttp ~= 1.0",
-            "ruff ~= 0.1.5",
+            "ruff ~= 0.2.2",
         ],
     },
 )

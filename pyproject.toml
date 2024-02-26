@@ -6,7 +6,7 @@ source = ["src"]
 show_missing = true
 
 [tool.ruff]
-select = [
+lint.select = [
     "E",  # Pyflakes
     "F",  # pycodestyle
     "I",  # isort
